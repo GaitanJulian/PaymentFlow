@@ -1,20 +1,28 @@
 from datetime import datetime
-from typing import Optional
-from uuid import uuid4
+from typing import Optional, Dict, Any
 
-from sqlmodel import Field, SQLModel, Column
-from sqlalchemy import JSON
+from sqlalchemy import Column, JSON
+from sqlmodel import SQLModel, Field
 
 
 class PaymentAttempt(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
-    order_id: str = Field(index=True)
+    id: str = Field(primary_key=True)
+    order_id: str
     amount: float
     currency: str
-    state: str = Field(sa_column=Column(default="PENDING", nullable=False))
-    idempotency_key: str = Field(unique=True, index=True)
-    metadata: Optional[dict] = Field(sa_column=Column(JSON, nullable=True))
-    webhook_payload: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
-    webhook_sent: bool = Field(default=False)
+    state: str
+    idempotency_key: str
+
+    # Campos JSON → usamos Column(JSON) para que SQLAlchemy sepa qué tipo es
+    extra_metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )
+    webhook_payload: Optional[Dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )
+
+    webhook_sent: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     processed_at: Optional[datetime] = None

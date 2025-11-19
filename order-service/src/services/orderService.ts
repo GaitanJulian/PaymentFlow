@@ -2,7 +2,7 @@ import prisma from '../prisma/client';
 import { CreateOrderDto } from '../dto/createOrder.dto';
 import { OrderState } from '../types/orderState';
 import { publishOrderCreated } from '../utils/eventPublisher';
-
+import { Order } from '@prisma/client';
 export async function createOrder(dto: CreateOrderDto) {
   const order = await prisma.order.create({
     data: {
@@ -26,5 +26,11 @@ export async function transitionOrderState(orderId: string, targetState: OrderSt
   return prisma.order.update({
     where: { id: orderId },
     data: { state: targetState }
+  });
+}
+
+export async function getOrderById(orderId: string): Promise<Order | null> {
+  return prisma.order.findUnique({
+    where: { id: orderId },
   });
 }

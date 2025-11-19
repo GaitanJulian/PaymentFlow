@@ -4,9 +4,10 @@ import { Order } from '@prisma/client';
 export async function publishOrderCreated(order: Order): Promise<void> {
   const payload = {
     orderId: order.id,
-    amount: order.amount,
+    amount: Number(order.amount),
     currency: order.currency,
-    state: order.state
+    paymentMethod: order.paymentMethod,
+    // metadata es opcional; puedes añadir algo aquí si quieres
   };
 
   try {
@@ -19,6 +20,9 @@ export async function publishOrderCreated(order: Order): Promise<void> {
       body: JSON.stringify(payload)
     });
   } catch (error) {
-    console.warn('Unable to publish order.created event', { orderId: order.id, error });
+    console.warn('Unable to publish order.created event', {
+      orderId: order.id,
+      error
+    });
   }
 }

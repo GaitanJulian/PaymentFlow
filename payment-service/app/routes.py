@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from .db.session import async_session
@@ -11,49 +12,73 @@ from .services.payment_processor import simulate_payment_workflow
 router = APIRouter()
 
 
-@router.get('/health')
+@router.get("/health")
 async def health():
-    return {'status': 'ok', 'timestamp': datetime.utcnow()}
+    return {"status": "ok", "timestamp": datetime.utcnow()}
 
 
-@router.get('/metrics')
-async def metrics():
-    return {'payment_requests': 0, 'payment_failures': 0}
-
-
-@router.post('/payments', response_model=PaymentResponse)
-async def create_payment(
-    background_tasks: BackgroundTasks,
-    payload: PaymentRequest,
-    idempotency_key: str = Header(..., alias='Idempotency-Key')
-):
+async def get_session():
     async with async_session() as session:
-        statement = select(PaymentAttempt).where(PaymentAttempt.idempotency_key == idempotency_key)
-        result = await session.execute(statement)
-        existing = result.scalar_one_or_none()
-        if existing:
-            return PaymentResponse(
-                transaction_id=existing.id,
-                status=PaymentStatus(existing.state),
-                received_at=existing.created_at
-            )
+        yield session
 
-        attempt = PaymentAttempt(
-            order_id=payload.order_id,
-            amount=payload.amount,
-            currency=payload.currency,
-            state=PaymentStatus.PENDING.value,
-            idempotency_key=idempotency_key,
-            metadata={'payment_method': payload.payment_method, 'metadata': payload.metadata}
+
+@router.post("/payments", response_model=PaymentResponse)
+async def create_payment(
+    payload: PaymentRequest,
+    background_tasks: BackgroundTasks,
+    idempotency_key: str = Header(None, alias="Idempotency-Key"),
+    session=Depends(get_session),
+):
+    if not idempotency_key:
+        raise HTTPException(status_code=400, detail="Idempotency-Key header is required")
+
+    # 1) Buscar si ya existe un intento con esa idempotency key
+    result = await session.exec(
+        select(PaymentAttempt).where(PaymentAttempt.idempotency_key == idempotency_key)
+    )
+    attempt = result.first()
+
+    if attempt:
+        # Devolver el mismo resultado (idempotente)
+        return PaymentResponse(
+            transaction_id=attempt.id,
+            status=PaymentStatus(attempt.state),
+            received_at=attempt.created_at,
         )
-        session.add(attempt)
+
+    # 2) Crear nuevo intento
+    attempt = PaymentAttempt(
+        order_id=payload.order_id,
+        amount=payload.amount,
+        currency=payload.currency,
+        state=PaymentStatus.PENDING.value,
+        idempotency_key=idempotency_key,
+        extra_metadata={
+            "paymentMethod": payload.payment_method,
+            "metadata": payload.metadata,
+    },
+)
+
+    session.add(attempt)
+
+    try:
         await session.commit()
         await session.refresh(attempt)
+    except IntegrityError:
+        # En caso de carrera: si otro proceso creó el mismo idempotency_key
+        await session.rollback()
+        result = await session.exec(
+            select(PaymentAttempt).where(PaymentAttempt.idempotency_key == idempotency_key)
+        )
+        attempt = result.first()
+        if not attempt:
+            raise HTTPException(status_code=500, detail="Failed to handle idempotent payment")
 
+    # 3) Lanzar el workflow en background
     background_tasks.add_task(simulate_payment_workflow, attempt.id)
 
     return PaymentResponse(
         transaction_id=attempt.id,
         status=PaymentStatus.PENDING,
-        received_at=attempt.created_at
+        received_at=attempt.created_at,
     )
