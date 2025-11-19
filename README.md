@@ -1,0 +1,2 @@
+# PaymentFlow
+Polyglot microservice architecture where a Node.js (TypeScript) Order API coordinates the lifecycle of customer orders and a Python/FastAPI Payment Provider simulates asynchronous payment processing. Services communicate via signed webhooks and background jobs, persisting data in PostgreSQL and orchestrated with Docker Compose. The system implements idempotent payment endpoints, correlation IDs, health checks, and a realistic order state machine (PENDING → PAID → SHIPPED / FAILED), with full test coverage in both ecosystems (Jest + Supertest, pytest + HTTPX).
