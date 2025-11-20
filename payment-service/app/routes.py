@@ -32,11 +32,11 @@ async def create_payment(
     if not idempotency_key:
         raise HTTPException(status_code=400, detail="Idempotency-Key header is required")
 
-    # 1) Buscar si ya existe un intento con esa idempotency key
-    result = await session.exec(
+    # 1) Buscar si ya existe un intento con esa idempotency key (idempotencia)
+    result = await session.execute(
         select(PaymentAttempt).where(PaymentAttempt.idempotency_key == idempotency_key)
     )
-    attempt = result.first()
+    attempt = result.scalars().first()
 
     if attempt:
         # Devolver el mismo resultado (idempotente)
@@ -56,8 +56,8 @@ async def create_payment(
         extra_metadata={
             "paymentMethod": payload.payment_method,
             "metadata": payload.metadata,
-    },
-)
+        },
+    )
 
     session.add(attempt)
 
@@ -67,10 +67,10 @@ async def create_payment(
     except IntegrityError:
         # En caso de carrera: si otro proceso creó el mismo idempotency_key
         await session.rollback()
-        result = await session.exec(
+        result = await session.execute(
             select(PaymentAttempt).where(PaymentAttempt.idempotency_key == idempotency_key)
         )
-        attempt = result.first()
+        attempt = result.scalars().first()
         if not attempt:
             raise HTTPException(status_code=500, detail="Failed to handle idempotent payment")
 

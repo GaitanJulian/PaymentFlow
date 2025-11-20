@@ -3,6 +3,7 @@ import { CreateOrderDto } from '../dto/createOrder.dto';
 import { OrderState } from '../types/orderState';
 import { publishOrderCreated } from '../utils/eventPublisher';
 import { Order } from '@prisma/client';
+
 export async function createOrder(dto: CreateOrderDto) {
   const order = await prisma.order.create({
     data: {

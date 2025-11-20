@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { createOrderSchema } from '../dto/createOrder.dto';
-import { createOrder, transitionOrderState } from '../services/orderService';
+import { createOrder, transitionOrderState, getOrderById } from '../services/orderService';
 import { OrderState } from '../types/orderState';
+
 
 export async function createOrderHandler(req: Request, res: Response) {
   const payload = createOrderSchema.parse(req.body);
@@ -51,6 +52,24 @@ export async function paymentWebhookHandler(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Error handling payment webhook', { error, orderId, status });
+    return res.status(500).json({ message: 'internal error' });
+  }
+}
+
+
+export async function getOrderByIdHandler(req: Request, res: Response) {
+  const { orderId } = req.params;
+
+  try {
+    const order = await getOrderById(orderId);
+
+    if (!order) {
+      return res.status(404).json({ message: 'order not found' });
+    }
+
+    return res.json(order);
+  } catch (error) {
+    console.error('Error fetching order by id', { error, orderId });
     return res.status(500).json({ message: 'internal error' });
   }
 }
