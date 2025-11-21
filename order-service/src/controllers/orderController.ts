@@ -1,13 +1,26 @@
 import { Request, Response } from 'express';
-import { createOrderSchema } from '../dto/createOrder.dto';
+import { createOrderBodySchema, CreateOrderDto } from '../dto/createOrder.dto';
 import { createOrder, transitionOrderState, getOrderById, cancelOrder, shipOrder } from '../services/orderService';
 import { OrderState } from '../types/orderState';
 import { z } from 'zod';
 
 
 export async function createOrderHandler(req: Request, res: Response) {
-  const payload = createOrderSchema.parse(req.body);
-  const order = await createOrder(payload);
+  // 1) Validar el body SIN userId
+  const body = createOrderBodySchema.parse(req.body);
+
+  // 2) Tomar el userId del token
+  const userId = req.user?.sub;
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthenticated: missing user in token payload' });
+  }
+
+  const dto: CreateOrderDto = {
+    ...body,
+    userId,
+  };
+
+  const order = await createOrder(dto);
   return res.status(201).json(order);
 }
 

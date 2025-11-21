@@ -8,11 +8,16 @@ import {
 } from '../controllers/orderController';
 import { paymentWebhookHandler } from '../controllers/webhookController';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { registerHandler, loginHandler, refreshTokenHandler } from '../controllers/authController';
 
 const router = Router();
 
 // Webhook NO va autenticado por JWT (usa firma HMAC)
 router.post('/webhooks/payment', paymentWebhookHandler);
+
+router.post('/auth/register', registerHandler);
+router.post('/auth/login', loginHandler);
+router.post('/auth/refresh', refreshTokenHandler);
 
 // A partir de acá, todo requiere JWT
 router.use(authMiddleware);
