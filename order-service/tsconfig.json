@@ -12,5 +12,7 @@
     "resolveJsonModule": true,
     "noEmitOnError": true,
     "lib": ["ES2021", "DOM"]
-  }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "**/*.spec.ts", "**/*.test.ts", "tests"]
 }
