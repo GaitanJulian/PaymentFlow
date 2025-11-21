@@ -6,18 +6,18 @@ Polyglot microservice portfolio that showcases a Node.js/TypeScript Order Servic
 
 - **Order Service (Node.js + TypeScript + Prisma + PostgreSQL)**  
   * Manages the order lifecycle (`PENDING → PAID → FAILED → CANCELED → SHIPPED`).  
-  * Exposes a REST API (Express, Fastify, or NestJS) with JWT authentication, access/refresh tokens, and role-based access (USER / ADMIN).  
-  * Owns the orders database and publishes `order.created` / `payment.*` events (initially via HTTP, extensible to RabbitMQ or Kafka).  
+  * Exposes a REST API (Express) with JWT authentication, access/refresh tokens, and role-based access (USER / ADMIN).  
+  * Supports `register`, `login`, `refresh`, `auth/me` plus CRUD on `/orders`, signed webhook handling, and publishes `order.created` events to the payment provider.
 
 - **Payment Service (Python + FastAPI + SQLModel/SQLAlchemy + PostgreSQL)**  
-  * Acts as a fake payment provider simulating successes/failures with latency, retries, and background processing (BackgroundTasks or Celery/RQ + Redis).  
-  * Receives `POST /payments` with idempotency keys, stores transaction logs, and triggers signed webhooks (`SIGNING_SECRET`) back to the Order Service.  
-  * Includes `/health` and `/metrics` endpoints, structured JSON logging, and observability hooks (correlation IDs, OpenTelemetry notes).
+  * Simulates a payment provider that processes idempotent `/payments` requests, stores traces, and issues signed webhooks back to the Order Service.  
+  * Background workflow randomly decides `SUCCESS`/`FAILED`, retries webhooks with exponential backoff, and records webhook payloads + delivery flags.  
+  * Supervises `/health` + `/payments/by-order` diagnostics and uses HMAC signing for authenticity.
 
 - **Infrastructure Extras**  
-  * Docker Compose orchestrates both services with PostgreSQL (orders/payments), Redis/RabbitMQ, and shared networks.  
-  * CI pipeline (GitHub Actions) runs linters (ESLint/Prettier, Ruff/Black), Jest/Supertest, pytest+HTTPX, and builds Docker images.  
-  * Optional React/Vite dashboard can visualize orders, payments, and status timelines.
+  * Docker Compose brings up both services plus dedicated Postgres instances; shared env vars keep secrets (JWT, webhook HMAC) consistent.  
+  * Unit tests (`jest`) cover auth token generation/rotation; the stack is testable via `npm run test` in the order service.
+  * README documentation, env examples, and signed webhook helpers keep the portfolio narrative cohesive for recruiters.
 
 ## Getting started
 
@@ -29,5 +29,5 @@ Each service resides in its own folder to keep code, migrations, and tests self-
 
 ## Service Guides
 
-- [`order-service/README.md`](order-service/README.md) — outlines the Node.js journey: API, events, JWT security, Prisma models, and testing strategy.
+- [`order-service/README.md`](order-service/README.md) – outlines the Node.js journey: API, events, JWT security, Prisma models, and testing strategy.
 - [`payment-service/README.md`](payment-service/README.md) — covers FastAPI, async payment flows, background job processing, webhook signing, and observability pieces.
