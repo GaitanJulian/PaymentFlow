@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { createOrderSchema } from '../dto/createOrder.dto';
-import { createOrder, transitionOrderState, getOrderById } from '../services/orderService';
+import { createOrder, transitionOrderState, getOrderById, cancelOrder, shipOrder } from '../services/orderService';
 import { OrderState } from '../types/orderState';
+import { z } from 'zod';
 
 
 export async function createOrderHandler(req: Request, res: Response) {
@@ -71,5 +72,37 @@ export async function getOrderByIdHandler(req: Request, res: Response) {
   } catch (error) {
     console.error('Error fetching order by id', { error, orderId });
     return res.status(500).json({ message: 'internal error' });
+  }
+}
+
+export async function cancelOrderHandler(req: Request, res: Response) {
+  const paramsSchema = z.object({
+    orderId: z.string().uuid(),
+  });
+
+  const { orderId } = paramsSchema.parse(req.params);
+
+  try {
+    const order = await cancelOrder(orderId);
+    return res.status(200).json(order);
+  } catch (err) {
+    console.error('Error cancelling order', err);
+    return res.status(400).json({ message: 'cannot cancel order' });
+  }
+}
+
+export async function shipOrderHandler(req: Request, res: Response) {
+  const paramsSchema = z.object({
+    orderId: z.string().uuid(),
+  });
+
+  const { orderId } = paramsSchema.parse(req.params);
+
+  try {
+    const order = await shipOrder(orderId);
+    return res.status(200).json(order);
+  } catch (err: any) {
+    console.error('Error shipping order', err);
+    return res.status(400).json({ message: err?.message || 'cannot ship order' });
   }
 }

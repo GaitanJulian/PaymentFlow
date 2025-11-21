@@ -35,3 +35,26 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
     where: { id: orderId },
   });
 }
+
+export async function cancelOrder(orderId: string) {
+  return prisma.order.update({
+    where: { id: orderId },
+    data: { state: OrderState.CANCELED },
+  });
+}
+
+export async function shipOrder(orderId: string) {
+  // Podrías chequear que esté PAID primero si quieres
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) {
+    throw new Error('Order not found');
+  }
+  if (order.state !== OrderState.PAID) {
+    throw new Error('Order must be PAID before shipping');
+  }
+
+  return prisma.order.update({
+    where: { id: orderId },
+    data: { state: OrderState.SHIPPED },
+  });
+}

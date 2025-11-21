@@ -45,25 +45,37 @@ async def simulate_payment_workflow(attempt_id: str) -> None:
 
 
 async def dispatch_webhook(payload: WebhookPayload, transaction_id: str) -> None:
-    # Enviar JSON usando alias → orderId, transactionId
     body = payload.json(by_alias=True).encode("utf-8")
     signature = sign(body)
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            settings.order_service_webhook,
-            content=body,
-            headers={
-                "Content-Type": "application/json",
-                "X-Signature": signature,
-                "X-Transaction-Id": transaction_id,
-            },
-            timeout=5.0,
-        )
-        resp.raise_for_status()
+    backoff_seconds = [1.0, 2.0, 4.0]
 
-    async with async_session() as session:
-        attempt = await session.get(PaymentAttempt, transaction_id)
-        if attempt:
-            attempt.webhook_sent = True
-            await session.commit()
+    for attempt in range(1, len(backoff_seconds) + 2):
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    settings.order_service_webhook,
+                    content=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Signature": signature,
+                        "X-Transaction-Id": transaction_id,
+                    },
+                    timeout=5.0,
+                )
+                resp.raise_for_status()
+
+            # Si llegamos aquí, el webhook fue exitoso
+            async with async_session() as session:
+                payment = await session.get(PaymentAttempt, transaction_id)
+                if payment:
+                    payment.webhook_sent = True
+                    await session.commit()
+
+            return
+        except Exception as e:
+            print(f"Webhook attempt {attempt} failed: {e}")
+            if attempt >= len(backoff_seconds) + 1:
+                # Dejamos webhook_sent = False y salimos
+                return
+            await asyncio.sleep(backoff_seconds[attempt - 1])

@@ -2,27 +2,34 @@ import { Router } from 'express';
 import {
   createOrderHandler,
   updateOrderStateHandler,
-  paymentWebhookHandler,
+  cancelOrderHandler,
+  shipOrderHandler,
   getOrderByIdHandler,
 } from '../controllers/orderController';
+import { paymentWebhookHandler } from '../controllers/webhookController';
+import { authMiddleware } from '../middlewares/authMiddleware';
 
 const router = Router();
 
-
-// Webhook que llama el Payment Service
+// Webhook NO va autenticado por JWT (usa firma HMAC)
 router.post('/webhooks/payment', paymentWebhookHandler);
 
-// Crear orden
+// A partir de acá, todo requiere JWT
+router.use(authMiddleware);
+
+// Endpoint para probar rápidamente el JWT
+router.get('/auth/me', (req, res) => {
+  return res.json({
+    message: 'JWT valid',
+    user: req.user,
+  });
+});
+
+// CRUD de órdenes
 router.post('/orders', createOrderHandler);
-
-// Ver orden por id (nuevo)
 router.get('/orders/:orderId', getOrderByIdHandler);
-
-// Cambiar estado manualmente (ya existía)
 router.patch('/orders/:orderId/state', updateOrderStateHandler);
-
-// Nuevo endpoint para recibir el webhook del payment-service
-router.post('/webhooks/payment', paymentWebhookHandler);
-
+router.post('/orders/:orderId/cancel', cancelOrderHandler);
+router.post('/orders/:orderId/ship', shipOrderHandler);
 
 export default router;

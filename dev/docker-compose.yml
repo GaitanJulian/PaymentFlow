@@ -39,7 +39,7 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://orders_user:orders_pass@orders-db:5432/orders_db
       PAYMENT_PROVIDER_URL: http://payment-service:8000/api/payments
-      ORDER_WEBHOOK_SECRET: change-me
+      ORDER_WEBHOOK_SECRET: supersecret-signing-key
     ports:
       - "4000:4000"
     networks:

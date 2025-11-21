@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
@@ -82,3 +82,20 @@ async def create_payment(
         status=PaymentStatus.PENDING,
         received_at=attempt.created_at,
     )
+
+
+async def get_session():
+    async with async_session() as session:
+        yield session
+
+
+@router.get("/payments/by-order")
+async def get_payments_by_order(
+    order_id: str = Query(..., alias="orderId"),
+    session=Depends(get_session),
+):
+    result = await session.execute(
+        select(PaymentAttempt).where(PaymentAttempt.order_id == order_id)
+    )
+    attempts = result.scalars().all()
+    return attempts
